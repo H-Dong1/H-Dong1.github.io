@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>加盟店ポイント管理 POC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&display=swap');
+
+        :root {
+            --bg-top: #f7f3ee;
+            --bg-bottom: #f4f6fb;
+            --primary: #1f3a5f;
+            --primary-soft: #e6edf8;
+            --accent: #d6a24a;
+            --accent-soft: #f8edd7;
+            --ink: #18212f;
+            --muted: #6b7280;
+            --line: rgba(148, 163, 184, 0.18);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(214, 162, 74, 0.14), transparent 26%),
+                radial-gradient(circle at top right, rgba(31, 58, 95, 0.08), transparent 30%),
+                linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+        }
+
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--line);
+            box-shadow: 0 20px 50px rgba(24, 33, 47, 0.08);
+        }
+        .soft-panel {
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(226, 232, 240, 0.92);
+            box-shadow: 0 12px 32px rgba(24, 33, 47, 0.05);
+        }
+        .hero-card {
+            background:
+                linear-gradient(145deg, #162338 0%, #243754 48%, #4d3b26 100%);
+            box-shadow: 0 24px 42px rgba(22, 35, 56, 0.28);
+        }
+        .hero-grid {
+            background-image:
+                linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 16px 16px;
+        }
+        .hero-muted { color: rgba(255, 255, 255, 0.82); }
+        .hero-soft { color: rgba(255, 255, 255, 0.68); }
+        .hero-panel {
+            background: rgba(9, 14, 24, 0.22);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .animate-in { animation: fadeInUp 0.42s ease-out both; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #reader {
+            border: none !important;
+            border-radius: 26px;
+            overflow: hidden;
+            background: #111827;
+        }
+        #reader video {
+            object-fit: cover !important;
+            border-radius: 26px;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="min-h-screen" style="padding-bottom: calc(128px + env(safe-area-inset-bottom));">
+    <header class="sticky top-0 z-40 px-4 pt-4">
+        <div class="glass-card rounded-[26px] px-4 py-4">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-11 h-11 rounded-2xl bg-[var(--primary)] text-white flex items-center justify-center shrink-0">
+                        <i data-lucide="store" class="w-5 h-5"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h1 class="text-sm font-extrabold tracking-wide text-slate-900 truncate">加盟店ポイント管理</h1>
+                        <p class="text-[11px] text-slate-500 font-medium truncate">共通会員向け スマホPOC</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="app.seedDemoData()" class="w-10 h-10 rounded-full bg-white text-slate-600 border border-slate-200 active:scale-95">
+                        <i data-lucide="database-backup" class="w-4 h-4 mx-auto"></i>
+                    </button>
+                    <button onclick="app.toast('このPOCはブラウザのローカル保存で動作します')" class="w-10 h-10 rounded-full bg-white text-slate-600 border border-slate-200 active:scale-95">
+                        <i data-lucide="info" class="w-4 h-4 mx-auto"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="px-4 pt-4 space-y-4" style="padding-bottom: calc(148px + env(safe-area-inset-bottom));">
+        <section class="hero-card hero-grid rounded-[30px] p-5 text-white relative overflow-hidden animate-in">
+            <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.08),rgba(0,0,0,0.2))]"></div>
+            <div class="absolute -right-10 -top-10 w-36 h-36 rounded-full bg-white/8 blur-3xl"></div>
+            <div class="absolute -left-8 bottom-0 w-24 h-24 rounded-full bg-amber-300/10 blur-3xl"></div>
+            <div class="relative">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-[10px] uppercase tracking-[0.28em] hero-soft mb-2">Store Profile</p>
+                        <div class="text-xl font-extrabold leading-tight">東京セントラル店</div>
+                        <div class="text-[12px] hero-muted mt-1 leading-5">本部共通会員のポイント運用に対応する加盟店画面</div>
+                    </div>
+                    <div class="rounded-full hero-panel px-3 py-2 text-[10px] font-bold shrink-0">LOCAL POC</div>
+                </div>
+
+                <div class="mt-5 rounded-[24px] hero-panel p-4">
+                    <div class="text-[10px] uppercase tracking-[0.24em] hero-soft">Store Available Pool</div>
+                    <div class="flex items-end gap-2 mt-2">
+                        <span id="store-balance" class="text-4xl font-extrabold tracking-tight">0</span>
+                        <span class="text-sm hero-muted mb-1">pt</span>
+                    </div>
+                    <p class="text-[11px] hero-muted mt-2 leading-5">この残高は本部会員全体の保有ポイントではなく、この店舗が現在発行できるポイント枠です。</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mt-4">
+                    <div class="hero-panel rounded-2xl p-3">
+                        <div class="text-[10px] hero-soft leading-4">最近来店した会員</div>
+                        <div id="stat-members" class="mt-1 text-lg font-bold">0</div>
+                    </div>
+                    <div class="hero-panel rounded-2xl p-3">
+                        <div class="text-[10px] hero-soft leading-4">本日の付与</div>
+                        <div id="stat-today-issue" class="mt-1 text-lg font-bold">0</div>
+                    </div>
+                    <div class="hero-panel rounded-2xl p-3 col-span-2">
+                        <div class="text-[10px] hero-soft leading-4">操作件数</div>
+                        <div id="stat-history" class="mt-1 text-lg font-bold">0</div>
+                    </div>
+                </div>
+
+                <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button onclick="app.showModal('depositModal')" class="rounded-2xl bg-white text-slate-900 min-h-[52px] px-3 font-bold flex items-center justify-center gap-2 active:scale-95">
+                        <i data-lucide="wallet-cards" class="w-4 h-4"></i>
+                        店舗枠を補充
+                    </button>
+                    <button onclick="app.showModal('issueModal')" class="rounded-2xl bg-[var(--accent)] text-slate-900 min-h-[52px] px-3 font-bold flex items-center justify-center gap-2 active:scale-95">
+                        <i data-lucide="gift" class="w-4 h-4"></i>
+                        ポイント付与
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="animate-in" style="animation-delay: 0.05s">
+            <button onclick="app.openScanner()" class="soft-panel rounded-[26px] p-4 w-full flex items-center gap-4 active:bg-slate-50 transition-colors">
+                <div class="w-13 h-13 min-w-[52px] min-h-[52px] rounded-2xl bg-[var(--primary-soft)] text-[var(--primary)] flex items-center justify-center">
+                    <i data-lucide="scan-line" class="w-6 h-6"></i>
+                </div>
+                <div class="text-left flex-1 min-w-0">
+                    <div class="text-sm font-extrabold text-slate-900">会員QRを読み取る</div>
+                    <div class="text-[11px] text-slate-500 mt-1 leading-5">共通会員IDを読み取り、そのまま付与画面へ進みます。</div>
+                </div>
+                <i data-lucide="chevron-right" class="w-5 h-5 text-slate-300 shrink-0"></i>
+            </button>
+        </section>
+
+        <section class="soft-panel rounded-[28px] p-4 animate-in" style="animation-delay: 0.1s">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div class="min-w-0">
+                    <h2 class="text-sm font-extrabold text-slate-900">最近来店した共通会員</h2>
+                    <p class="text-[11px] text-slate-500 mt-1 leading-5">この店舗で最近対応した会員のみを表示します。</p>
+                </div>
+                <span id="member-count" class="text-[11px] font-bold px-3 py-1 rounded-full bg-[var(--primary-soft)] text-[var(--primary)] shrink-0">0名</span>
+            </div>
+            <div class="relative mb-4">
+                <i data-lucide="search" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input id="member-search" type="text" placeholder="会員ID または 名前で検索" class="w-full pl-11 pr-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 text-[14px] focus:outline-none focus:border-[var(--primary)]">
+            </div>
+            <div id="member-list" class="space-y-3 max-h-[340px] overflow-y-auto hide-scrollbar"></div>
+        </section>
+
+        <section class="soft-panel rounded-[28px] p-4 animate-in" style="animation-delay: 0.15s">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div class="min-w-0">
+                    <h2 class="text-sm font-extrabold text-slate-900">店舗操作履歴</h2>
+                    <p class="text-[11px] text-slate-500 mt-1 leading-5">補充、付与、QR読取など本店の操作だけを記録します。</p>
+                </div>
+                <button onclick="app.exportData()" class="text-[11px] font-bold px-3 py-2 rounded-full bg-slate-100 text-slate-700 active:scale-95 shrink-0">
+                    JSON出力
+                </button>
+            </div>
+            <div id="history-list" class="space-y-3 max-h-[340px] overflow-y-auto hide-scrollbar"></div>
+        </section>
+    </main>
+
+    <nav class="fixed left-0 right-0 z-40 px-4" style="bottom: calc(12px + env(safe-area-inset-bottom));">
+        <div class="glass-card rounded-[28px] px-4 py-3 flex items-center justify-around min-h-[76px]">
+            <button class="flex flex-col items-center gap-1 text-[var(--primary)] min-w-[72px]">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold">ホーム</span>
+            </button>
+            <button onclick="app.showModal('issueModal')" class="flex flex-col items-center gap-1 text-slate-500 min-w-[72px]">
+                <i data-lucide="gift" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold">付与</span>
+            </button>
+            <button onclick="app.toast('設定画面はPOC向けに簡略化しています')" class="flex flex-col items-center gap-1 text-slate-500 min-w-[72px]">
+                <i data-lucide="settings" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold">設定</span>
+            </button>
+        </div>
+    </nav>
+
+    <div id="depositModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" onclick="app.closeModal('depositModal')"></div>
+        <div class="absolute bottom-0 left-0 right-0 rounded-t-[34px] bg-white p-6 shadow-2xl safe-area-bottom animate-in">
+            <div class="w-12 h-1.5 rounded-full bg-slate-200 mx-auto mb-5"></div>
+            <h3 class="text-xl font-extrabold text-center text-slate-900">店舗ポイント枠を補充</h3>
+            <p class="text-center text-sm text-slate-500 mt-2 leading-6">本部または精算処理から、この店舗に付与可能なポイント枠を追加する想定です。</p>
+            <div class="grid grid-cols-3 gap-3 my-6">
+                <button onclick="app.setQuickDeposit(10000)" class="py-4 rounded-2xl border border-slate-200 bg-slate-50 font-bold text-slate-700">10,000</button>
+                <button onclick="app.setQuickDeposit(50000)" class="py-4 rounded-2xl border border-slate-200 bg-slate-50 font-bold text-slate-700">50,000</button>
+                <button onclick="app.setQuickDeposit(100000)" class="py-4 rounded-2xl border border-slate-200 bg-slate-50 font-bold text-slate-700">100,000</button>
+            </div>
+            <input id="deposit-amount" type="number" min="1" placeholder="補充するポイント数" class="w-full rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 text-xl font-bold focus:outline-none focus:border-[var(--primary)]">
+            <button onclick="app.processDeposit()" class="mt-4 w-full rounded-2xl bg-[var(--primary)] py-4 text-white font-bold">補充を確定</button>
+        </div>
+    </div>
+
+    <div id="issueModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" onclick="app.closeModal('issueModal')"></div>
+        <div class="absolute bottom-0 left-0 right-0 rounded-t-[34px] bg-white p-6 shadow-2xl safe-area-bottom animate-in">
+            <div class="w-12 h-1.5 rounded-full bg-slate-200 mx-auto mb-5"></div>
+            <h3 class="text-xl font-extrabold text-center text-slate-900">共通会員へポイント付与</h3>
+            <p class="text-center text-sm text-slate-500 mt-2 leading-6">会員は本部共通IDで管理され、この画面では加盟店として付与だけを行います。</p>
+            <div class="space-y-3 mt-6">
+                <input id="issue-member-id" type="text" placeholder="会員ID 例: M-1001" class="w-full rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 text-[14px] focus:outline-none focus:border-[var(--primary)]">
+                <input id="issue-member-name" type="text" placeholder="会員名（初回来店時のみ任意）" class="w-full rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 text-[14px] focus:outline-none focus:border-[var(--primary)]">
+                <input id="issue-points" type="number" min="1" placeholder="付与ポイント数" class="w-full rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 text-xl font-bold focus:outline-none focus:border-[var(--primary)]">
+            </div>
+            <div class="grid grid-cols-3 gap-3 my-5">
+                <button onclick="app.setQuickIssue(100)" class="py-3 rounded-2xl border border-slate-200 bg-slate-50 font-bold text-slate-700">100pt</button>
+                <button onclick="app.setQuickIssue(300)" class="py-3 rounded-2xl border border-slate-200 bg-slate-50 font-bold text-slate-700">300pt</button>
+                <button onclick="app.setQuickIssue(500)" class="py-3 rounded-2xl border border-slate-200 bg-slate-50 font-bold text-slate-700">500pt</button>
+            </div>
+            <button onclick="app.processManualIssue()" class="w-full rounded-2xl bg-[var(--accent)] py-4 text-slate-900 font-bold">付与を確定</button>
+        </div>
+    </div>
+
+    <div id="scannerModal" class="fixed inset-0 z-[60] hidden flex-col bg-black">
+        <div class="relative flex-1 flex flex-col items-center justify-center p-6">
+            <button onclick="app.closeScanner()" class="absolute top-8 right-6 z-[70] bg-white/10 rounded-full p-3 text-white backdrop-blur-md">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+            <div class="w-full max-w-sm aspect-square relative">
+                <div class="absolute inset-0 z-[65] pointer-events-none rounded-[28px] border-2 border-amber-300 shadow-[0_0_24px_rgba(214,162,74,0.35)]"></div>
+                <div id="reader" class="w-full h-full"></div>
+            </div>
+            <div class="mt-8 text-center">
+                <h3 class="text-white text-lg font-bold">会員QRを読み取り中</h3>
+                <p class="text-white/70 text-sm mt-2 leading-6">読み取った内容を共通会員IDとして付与画面へ引き継ぎます。</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed top-20 left-1/2 z-[100] -translate-x-1/2 rounded-full bg-slate-900 px-6 py-3 text-[11px] font-bold text-white opacity-0 pointer-events-none transition-all shadow-2xl">
+        保存しました
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'franchise_store_point_poc_v3';
+
+        const createDefaultStore = () => ({
+            storeInfo: {
+                code: 'TOKYO-001',
+                name: '東京セントラル店',
+                network: '本部共通会員ネットワーク'
+            },
+            balance: 120000,
+            members: [
+                { id: 'M-1001', name: '田中 美咲', total: 12400, lastVisit: '2026/05/15 09:40', lastStoreAction: '300ptを付与', rank: 'Platinum' },
+                { id: 'M-2034', name: '鈴木 一真', total: 8200, lastVisit: '2026/05/15 10:10', lastStoreAction: '100ptを付与', rank: 'Gold' },
+                { id: 'M-3098', name: '佐藤 七海', total: 3100, lastVisit: '2026/05/14 18:22', lastStoreAction: '来店のみ', rank: 'Silver' }
+            ],
+            history: [
+                { type: 'deposit', amount: 50000, date: '2026/05/15 09:00', title: '店舗ポイント枠を補充', note: '本部から店舗枠を追加' },
+                { type: 'issue', amount: 300, date: '2026/05/15 09:40', title: '会員へポイント付与', memberId: 'M-1001', note: '購入キャンペーン' },
+                { type: 'issue', amount: 100, date: '2026/05/15 10:10', title: '会員へポイント付与', memberId: 'M-2034', note: '来店特典' }
+            ]
+        });
+
+        const app = {
+            html5QrCode: null,
+            store: null,
+            searchWord: '',
+
+            init() {
+                this.store = this.load();
+                this.bindEvents();
+                this.render();
+                lucide.createIcons();
+            },
+
+            load() {
+                try {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    return saved ? JSON.parse(saved) : createDefaultStore();
+                } catch (error) {
+                    console.error(error);
+                    return createDefaultStore();
+                }
+            },
+
+            save() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(this.store));
+            },
+
+            bindEvents() {
+                document.getElementById('member-search').addEventListener('input', (event) => {
+                    this.searchWord = event.target.value.trim().toLowerCase();
+                    this.renderMembers();
+                });
+            },
+
+            render() {
+                document.getElementById('store-balance').innerText = this.formatNumber(this.store.balance);
+                document.getElementById('stat-members').innerText = this.store.members.length;
+                document.getElementById('stat-today-issue').innerText = this.getTodayIssueTotal();
+                document.getElementById('stat-history').innerText = this.store.history.length;
+                document.getElementById('member-count').innerText = `${this.store.members.length}名`;
+                this.renderMembers();
+                this.renderHistory();
+                lucide.createIcons();
+            },
+
+            renderMembers() {
+                const memberList = document.getElementById('member-list');
+                const filtered = this.store.members.filter((member) => {
+                    if (!this.searchWord) return true;
+                    const target = `${member.id} ${member.name} ${member.rank}`.toLowerCase();
+                    return target.includes(this.searchWord);
+                });
+
+                if (!filtered.length) {
+                    memberList.innerHTML = `
+                        <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                            条件に合う会員が見つかりません
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+
+                memberList.innerHTML = filtered
+                    .sort((a, b) => new Date(b.lastVisit) - new Date(a.lastVisit))
+                    .map((member) => `
+                        <div class="rounded-3xl border border-slate-100 bg-white p-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                                        <i data-lucide="user-round" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-bold text-slate-900 truncate">${member.name}</div>
+                                        <div class="text-[11px] text-slate-500 mt-1 truncate">${member.id}</div>
+                                    </div>
+                                </div>
+                                <span class="px-3 py-1 rounded-full text-[10px] font-bold ${this.rankClass(member.rank)} shrink-0">${member.rank}</span>
+                            </div>
+                            <div class="mt-4 grid grid-cols-1 gap-3">
+                                <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                                    <div class="text-[10px] text-slate-500">会員保有ポイント</div>
+                                    <div class="text-base font-extrabold text-slate-900 mt-1">${this.formatNumber(member.total)} pt</div>
+                                </div>
+                                <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                                    <div class="text-[10px] text-slate-500">最終来店 / 店舗対応</div>
+                                    <div class="text-[12px] font-bold text-slate-700 mt-1">${member.lastVisit || '-'}</div>
+                                    <div class="text-[11px] text-slate-500 mt-1">${member.lastStoreAction || '-'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `)
+                    .join('');
+
+                lucide.createIcons();
+            },
+
+            renderHistory() {
+                const historyList = document.getElementById('history-list');
+                const items = this.store.history.slice().reverse();
+
+                if (!items.length) {
+                    historyList.innerHTML = `
+                        <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                            まだ履歴がありません
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+
+                historyList.innerHTML = items.map((item) => {
+                    const issue = item.type === 'issue';
+                    const lookup = item.type === 'lookup';
+                    const icon = issue ? 'gift' : lookup ? 'scan-search' : 'wallet-cards';
+                    const color = issue ? 'bg-[var(--accent-soft)] text-amber-700' : lookup ? 'bg-[var(--primary-soft)] text-[var(--primary)]' : 'bg-slate-100 text-slate-700';
+                    const amount = issue ? `-${this.formatNumber(item.amount)} pt` : item.type === 'deposit' ? `+${this.formatNumber(item.amount)} pt` : '';
+
+                    return `
+                        <div class="rounded-3xl border border-slate-100 bg-white p-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-start gap-3 min-w-0">
+                                    <div class="w-11 h-11 rounded-2xl ${color} flex items-center justify-center shrink-0">
+                                        <i data-lucide="${icon}" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-bold text-slate-900">${item.title}</div>
+                                        <div class="text-[11px] text-slate-500 mt-1 break-all">${item.date}${item.memberId ? ` ・ ${item.memberId}` : ''}</div>
+                                        <div class="text-[11px] text-slate-400 mt-1">${item.note || ''}</div>
+                                    </div>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <div class="text-sm font-extrabold ${issue ? 'text-amber-700' : 'text-slate-700'}">${amount}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                lucide.createIcons();
+            },
+
+            rankClass(rank) {
+                switch (rank) {
+                    case 'Platinum':
+                        return 'bg-slate-900 text-white';
+                    case 'Gold':
+                        return 'bg-[var(--accent-soft)] text-amber-700';
+                    case 'Silver':
+                        return 'bg-slate-100 text-slate-700';
+                    default:
+                        return 'bg-[var(--primary-soft)] text-[var(--primary)]';
+                }
+            },
+
+            getTodayIssueTotal() {
+                const today = this.getTodayDate();
+                const total = this.store.history
+                    .filter((item) => item.type === 'issue' && item.date.startsWith(today))
+                    .reduce((sum, item) => sum + item.amount, 0);
+                return this.formatNumber(total);
+            },
+
+            setQuickDeposit(value) {
+                document.getElementById('deposit-amount').value = value;
+            },
+
+            setQuickIssue(value) {
+                document.getElementById('issue-points').value = value;
+            },
+
+            processDeposit() {
+                const input = document.getElementById('deposit-amount');
+                const amount = parseInt(input.value, 10);
+                if (!amount || amount < 1) {
+                    this.toast('補充ポイント数を入力してください', 'bg-rose-500');
+                    return;
+                }
+
+                this.store.balance += amount;
+                this.store.history.push({
+                    type: 'deposit',
+                    amount,
+                    date: this.getNow(),
+                    title: '店舗ポイント枠を補充',
+                    note: '本部からの追加枠として記録'
+                });
+
+                input.value = '';
+                this.save();
+                this.render();
+                this.closeModal('depositModal');
+                this.toast(`${this.formatNumber(amount)} pt を補充しました`, 'bg-[var(--primary)]');
+            },
+
+            processManualIssue() {
+                const memberId = document.getElementById('issue-member-id').value.trim();
+                const memberName = document.getElementById('issue-member-name').value.trim();
+                const points = parseInt(document.getElementById('issue-points').value, 10);
+
+                if (!memberId) {
+                    this.toast('会員IDを入力してください', 'bg-rose-500');
+                    return;
+                }
+                if (!points || points < 1) {
+                    this.toast('付与ポイント数を入力してください', 'bg-rose-500');
+                    return;
+                }
+
+                this.issuePoints(memberId, points, memberName || '未登録会員');
+                document.getElementById('issue-member-id').value = '';
+                document.getElementById('issue-member-name').value = '';
+                document.getElementById('issue-points').value = '';
+                this.closeModal('issueModal');
+            },
+
+            issuePoints(memberId, points, memberName = '未登録会員') {
+                if (this.store.balance < points) {
+                    this.toast('店舗ポイント枠が不足しています', 'bg-rose-500');
+                    return false;
+                }
+
+                let member = this.store.members.find((item) => item.id.toLowerCase() === memberId.toLowerCase());
+                const firstVisit = !member;
+
+                if (!member) {
+                    member = {
+                        id: memberId,
+                        name: memberName,
+                        total: 0,
+                        lastVisit: '',
+                        lastStoreAction: '',
+                        rank: 'Standard'
+                    };
+                    this.store.members.unshift(member);
+                }
+
+                member.total += points;
+                member.lastVisit = this.getNow();
+                member.lastStoreAction = `${points}ptをこの店舗で付与`;
+                member.rank = this.getRank(member.total);
+
+                this.store.balance -= points;
+                this.store.history.push({
+                    type: 'issue',
+                    amount: points,
+                    date: this.getNow(),
+                    title: '会員へポイント付与',
+                    memberId: member.id,
+                    note: firstVisit ? 'この店舗では初回対応' : '既存共通会員へ付与'
+                });
+
+                this.save();
+                this.render();
+                this.toast(`${member.id} に ${this.formatNumber(points)} pt を付与しました`, 'bg-amber-600');
+                return true;
+            },
+
+            getRank(total) {
+                if (total >= 10000) return 'Platinum';
+                if (total >= 5000) return 'Gold';
+                if (total >= 2000) return 'Silver';
+                return 'Standard';
+            },
+
+            async openScanner() {
+                const modal = document.getElementById('scannerModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                this.html5QrCode = new Html5Qrcode('reader');
+
+                try {
+                    await this.html5QrCode.start(
+                        { facingMode: 'environment' },
+                        { fps: 10, qrbox: { width: 240, height: 240 } },
+                        (decodedText) => this.handleScanSuccess(decodedText)
+                    );
+                } catch (error) {
+                    console.error(error);
+                    this.toast('カメラを起動できませんでした', 'bg-rose-500');
+                    this.closeScanner();
+                }
+            },
+
+            async handleScanSuccess(decodedText) {
+                if (window.navigator.vibrate) window.navigator.vibrate(100);
+                await this.closeScanner();
+                document.getElementById('issue-member-id').value = decodedText;
+                document.getElementById('issue-points').value = 100;
+
+                this.store.history.push({
+                    type: 'lookup',
+                    amount: 0,
+                    date: this.getNow(),
+                    title: '会員QRを読み取り',
+                    memberId: decodedText,
+                    note: '付与画面へ会員IDを引き継ぎ'
+                });
+                this.save();
+                this.render();
+                this.showModal('issueModal');
+                this.toast(`会員ID ${decodedText} を読み取りました`, 'bg-[var(--primary)]');
+            },
+
+            async closeScanner() {
+                if (this.html5QrCode) {
+                    try {
+                        await this.html5QrCode.stop();
+                        await this.html5QrCode.clear();
+                    } catch (error) {
+                        console.warn(error);
+                    }
+                    this.html5QrCode = null;
+                }
+                const modal = document.getElementById('scannerModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            },
+
+            exportData() {
+                const payload = JSON.stringify(this.store, null, 2);
+                navigator.clipboard.writeText(payload)
+                    .then(() => this.toast('JSONをクリップボードにコピーしました'))
+                    .catch(() => this.toast('コピーに失敗しました', 'bg-rose-500'));
+            },
+
+            seedDemoData() {
+                this.store = createDefaultStore();
+                this.save();
+                this.render();
+                this.toast('デモデータに戻しました');
+            },
+
+            formatNumber(value) {
+                return Number(value || 0).toLocaleString('ja-JP');
+            },
+
+            getTodayDate() {
+                const date = new Date();
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return `${y}/${m}/${d}`;
+            },
+
+            getNow() {
+                const date = new Date();
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                const h = String(date.getHours()).padStart(2, '0');
+                const min = String(date.getMinutes()).padStart(2, '0');
+                return `${y}/${m}/${d} ${h}:${min}`;
+            },
+
+            showModal(id) {
+                document.getElementById(id).classList.remove('hidden');
+            },
+
+            closeModal(id) {
+                document.getElementById(id).classList.add('hidden');
+            },
+
+            toast(message, color = 'bg-slate-900') {
+                const toast = document.getElementById('toast');
+                toast.textContent = message;
+                toast.className = `fixed top-20 left-1/2 z-[100] -translate-x-1/2 rounded-full ${color} px-6 py-3 text-[11px] font-bold text-white transition-all shadow-2xl opacity-100 translate-y-2`;
+                setTimeout(() => {
+                    toast.classList.add('opacity-0', '-translate-y-2');
+                }, 2200);
+            }
+        };
+
+        window.onload = () => app.init();
+    </script>
+</body>
+</html>
